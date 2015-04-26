@@ -18,7 +18,9 @@
     (id (lambda (x)
       (ormap
        (lambda (pred) (pred x))
-       (list number? vector? boolean? symbol? string? pair? null?))))]
+       (list number? vector? boolean? symbol? string? pair? list? null?))))]
+  [quote-exp
+    (body expression?)]
   [lambda-exp
     (id list?)
     (body (list-of expression?))]
@@ -108,6 +110,7 @@
                 (lambda-exp-variable 'variable (list (cadr datum))
                             (map parse-exp (cddr datum)))
               ))]
+
           [(eqv? (car datum) 'if)
             (if (or (null? (cdr datum)) (null? (cddr datum)))
               (eopl:error 'parse-exp "incorrect # of arguments: ~s" datum)
@@ -119,12 +122,14 @@
                   (parse-exp (cadr datum))
                   (parse-exp (caddr datum))
                   (parse-exp (cadddr datum)))))]
+
           [(eqv? (car datum) 'set!)
             (if (or (null? (cdr datum)) (null? (cddr datum)) (not (null? (cdddr datum))))
               (eopl:error 'parse-exp "incorrect # of arguments: ~s" datum)
               (set!-exp
                 (parse-exp (cadr datum))
                 (parse-exp (caddr datum))))]
+
           [(eqv? (car datum) 'let)
             (if (or (null? (cdr datum)) (null? (cddr datum)))
               (eopl:error 'parse-exp "incorrect # of arguments: ~s" datum)
@@ -138,6 +143,7 @@
                                   (parse-exp (cadr x)))))
                     (cadr datum))
                   (map parse-exp (cddr datum)))))]
+
           [(eqv? (car datum) 'let*)
             (if (or (null? (cdr datum)) (null? (cddr datum)))
               (eopl:error 'parse-exp "incorrect # of arguments: ~s" datum)
@@ -151,6 +157,7 @@
                                   (parse-exp (cadr x)))))
                       (cadr datum))
                   (map parse-exp (cddr datum)))))]
+
           [(eqv? (car datum) 'letrec)
             (if (or (null? (cdr datum)) (null? (cddr datum)))
               (eopl:error 'parse-exp "incorrect # of arguments: ~s" datum)
@@ -164,6 +171,10 @@
                                   (parse-exp (cadr x)))))
                     (cadr datum))
                   (map parse-exp (cddr datum)))))]
+
+          [(eqv? (car datum) 'quote)
+            (quote-exp (lit-exp (cadr datum)))]
+
           [else (if (not (list? datum))
                   (eopl:error 'parse-exp "Improper list: ~s" datum)
                   (if (null? (cdr datum))
@@ -212,6 +223,8 @@
         (append (list 'letrec (map (lambda (x)
                                   (list (unparse-exp (car x)) (unparse-exp (cadr x))))
                                  variables)) (map unparse-exp body))]
+      [quote-exp (body)
+        (unparse-exp body)]
       [empty-app-exp (rator)
         (list (unparse-exp rator))]
       [app-exp (rator rand)
@@ -251,8 +264,8 @@
      ((pred (car ls)) 0)
      (else (let ((list-index-r (list-index pred (cdr ls))))
 	     (if (number? list-index-r)
-		 (+ 1 list-index-r)
-		 #f))))))
+		      (+ 1 list-index-r)
+		      #f))))))
 
 (define apply-env
   (lambda (env sym succeed fail) ; succeed and fail are procedures applied if the var is or isn't found, respectively.
@@ -260,10 +273,10 @@
       (empty-env-record ()
         (fail))
       (extended-env-record (syms vals env)
-	(let ((pos (list-find-position sym syms)))
+	      (let ((pos (list-find-position sym syms)))
       	  (if (number? pos)
-	      (succeed (list-ref vals pos))
-	      (apply-env env sym succeed fail)))))))
+	         (succeed (list-ref vals pos))
+	         (apply-env env sym succeed fail)))))))
 
 
 
@@ -312,6 +325,7 @@
            (lambda () (eopl:error 'apply-env ; procedure to call if id not in env
 		          "variable not found in environment: ~s"
 			   id)))]
+      [quote-exp (body) (eval-exp body env)]
       [if-else-exp (pred true false)
         (if (eval-exp pred env)
             (eval-exp true env)
@@ -341,7 +355,7 @@
                    "Attempt to apply bad procedure: ~s"
                     proc-value)])))
 
-(define *prim-proc-names* '(+ - * add1 sub1 = > < cons car cdr list zero?))
+(define *prim-proc-names* '(+ - * / add1 sub1 = > < >= <= cons car cdr caar cadr cdar cddr caaar caadr cadar caddr cdaar cdadr cddar cdddr list zero? not null? assq eq? equal? atom? length list->vector list? pair? procedure? vector->list vector make-vector vector-ref vector? number? symbol? set-car! set-cdr! vector-set! display newline))
 
 (define init-env         ; for now, our initial global environment only contains
   (extend-env            ; procedure names.  Recall that an environment associates
@@ -356,20 +370,127 @@
 (define apply-prim-proc
   (lambda (prim-proc args)
     (case prim-proc
-      [(+) (+ (1st args) (2nd args))]
-      [(-) (- (1st args) (2nd args))]
-      [(*) (* (1st args) (2nd args))]
-      [(add1) (+ (1st args) 1)]
-      [(sub1) (- (1st args) 1)]
-      [(=) (= (1st args) (2nd args))]
-      [(<) (< (1st args) (2nd args))]
-      [(>) (> (1st args) (2nd args))]
+      [(+) (apply + args)]
+      [(-) (apply - args)]
+      [(*) (apply * args)]
+      [(/) (apply / args)]
+      [(add1) (if (null? (cdr args))
+                  (+ (1st args) 1)
+                  (error 'apply-prim-proc "Incorrect number of arguments to" prim-proc))]
+      [(sub1) (if (null? (cdr args))
+                  (- (1st args) 1)
+                  (error 'apply-prim-proc "Incorrect number of arguments to" prim-proc))]
+      [(=) (apply = args)]
+      [(<) (apply < args)]
+      [(>) (apply > args)]
+      [(<=) (apply <= args)]
+      [(>=) (apply >= args)]
       [(cons) (apply cons args)]
-      [(car) (car (1st args))]
-      [(cdr) (cdr (1st args))]
-      [(list) args]
-      [(zero?) (zero? (1st args))]
 
+      [(car) (if (null? (cdr args))
+                  (car (1st args))
+                  (error 'apply-prim-proc "Incorrect number of arguments to" prim-proc))]
+      [(cdr) (if (null? (cdr args))
+                  (cdr (1st args))
+                  (error 'apply-prim-proc "Incorrect number of arguments to" prim-proc))]
+      [(caar) (if (null? (cdr args))
+                  (caar (1st args))
+                  (error 'apply-prim-proc "Incorrect number of arguments to" prim-proc))]
+      [(cadr) (if (null? (cdr args))
+                  (cadr (1st args))
+                  (error 'apply-prim-proc "Incorrect number of arguments to" prim-proc))]
+      [(cdar) (if (null? (cdr args))
+                  (cdar (1st args))
+                  (error 'apply-prim-proc "Incorrect number of arguments to" prim-proc))]
+      [(cddr) (if (null? (cdr args))
+                  (cddr (1st args))
+                  (error 'apply-prim-proc "Incorrect number of arguments to" prim-proc))]
+      [(caaar) (if (null? (cdr args))
+                  (caaar (1st args))
+                  (error 'apply-prim-proc "Incorrect number of arguments to" prim-proc))]
+      [(caadr) (if (null? (cdr args))
+                  (caadr (1st args))
+                  (error 'apply-prim-proc "Incorrect number of arguments to" prim-proc))]
+      [(cadar) (if (null? (cdr args))
+                  (cadar (1st args))
+                  (error 'apply-prim-proc "Incorrect number of arguments to" prim-proc))]
+      [(caddr) (if (null? (cdr args))
+                  (caddr (1st args))
+                  (error 'apply-prim-proc "Incorrect number of arguments to" prim-proc))]
+      [(cdaar) (if (null? (cdr args))
+                  (cdaar (1st args))
+                  (error 'apply-prim-proc "Incorrect number of arguments to" prim-proc))]
+      [(cdadr) (if (null? (cdr args))
+                  (cdadr (1st args))
+                  (error 'apply-prim-proc "Incorrect number of arguments to" prim-proc))]
+      [(cddar) (if (null? (cdr args))
+                  (cddar (1st args))
+                  (error 'apply-prim-proc "Incorrect number of arguments to" prim-proc))]
+      [(cdddr) (if (null? (cdr args))
+                  (cdddr (1st args))
+                  (error 'apply-prim-proc "Incorrect number of arguments to" prim-proc))]
+
+      [(list) args]
+      [(zero?) (if (null? (cdr args))
+                  (zero? (1st args))
+                  (error 'apply-prim-proc "Incorrect number of arguments to" prim-proc))]
+      [(not) (if (null? (cdr args))
+                  (not (1st args))
+                  (error 'apply-prim-proc "Incorrect number of arguments to" prim-proc))]
+      [(null?) (if (null? (cdr args))
+                  (null? (1st args))
+                  (error 'apply-prim-proc "Incorrect number of arguments to" prim-proc))]
+      [(assq) (assq (1st args) (2nd args))]
+      [(eq?) (apply eq? args)]
+      [(equal?) (apply equal? args)]
+      [(atom?)
+        (if (null? (cdr args))
+            (atom? (1st args))
+            (error 'apply-prim-proc "Incorrect number of arguments to" prim-proc))]
+      [(length)
+        (if (null? (cdr args))
+          (length (1st args))
+          (error 'apply-prim-proc "Incorrect number of arguments to" prim-proc))]
+      [(list->vector)
+        (if (null? (cdr args))
+          (list->vector (1st args))
+          (error 'apply-prim-proc "Incorrect number of arguments to" prim-proc))]
+      [(list?)
+        (if (null? (cdr args))
+          (list? (1st args))
+          (error 'apply-prim-proc "Incorrect number of arguments to" prim-proc))]
+      [(pair?)
+        (if (null? (cdr args))
+          (pair? (1st args))
+          (error 'apply-prim-proc "Incorrect number of arguments to" prim-proc))]
+      [(procedure?)
+        (if (null? (cdr args))
+          (procedure? (1st args))
+          (error 'apply-prim-proc "Incorrect number of arguments to" prim-proc))]
+      [(vector->list)
+        (if (null? (cdr args))
+          (vector->list (1st args))
+          (error 'apply-prim-proc "Incorrect number of arguments to" prim-proc))]
+      [(vector) (vector args)]
+      [(make-vector) (make-vector (1st args) (2nd args))]
+      [(vector-ref) (vector-ref (1st args) (2nd args))]
+      [(vector?)
+        (if (null? (cdr args))
+          (vector? (1st args))
+          (error 'apply-prim-proc "Incorrect number of arguments to" prim-proc))]
+      [(number?)
+        (if (null? (cdr args))
+          (number? (1st args))
+          (error 'apply-prim-proc "Incorrect number of arguments to" prim-proc))]
+      [(symbol?)
+        (if (null? (cdr args))
+          (symbol? (1st args))
+          (error 'apply-prim-proc "Incorrect number of arguments to" prim-proc))]
+      [(set-car!) (set-car! (1st args) (2nd args))]
+      [(set-cdr!) (set-cdr! (1st args) (2nd args))]
+      [(vector-set!) (vector-set! (1st args) (2nd args) (3rd args))]
+      [(display) (apply display args)]
+      [(newline) (newline)]
       [else (error 'apply-prim-proc
             "Bad primitive procedure name: ~s"
             prim-proc)])))

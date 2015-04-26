@@ -10,8 +10,8 @@
 		     #(a b c)
 		     #5(a)
 		     )]
-          [answers 
-            (list 
+          [answers
+            (list
 	     (eval-one-exp ''())
 	     (eval-one-exp #t)
 	     (eval-one-exp #f)
@@ -29,8 +29,8 @@
 		     (car (a b))
 		     (lambda (x) (+ 1 x))
 		     )]
-          [answers 
-            (list 
+          [answers
+            (list
 	     (eval-one-exp '(quote ()))
 	     (eval-one-exp '(quote a))
 	     (eval-one-exp '(quote (car (a b))))
@@ -46,8 +46,8 @@
 		     2
 		     10
 		     )]
-          [answers 
-            (list 
+          [answers
+            (list
 	     (eval-one-exp '(if #t 5 6))
 	     (eval-one-exp '(if 2 (if #f 3 4) 6))
 	     (eval-one-exp '(if #f 5 6))
@@ -87,8 +87,8 @@
 		     b
 		     (#t #t #f)
 		     )]
-          [answers 
-            (list 
+          [answers
+            (list
 	     (eval-one-exp '(+ (+ 1 2) 3 4))
 	     (eval-one-exp '(- 10 1 (- 5 3)))
 	     (eval-one-exp '(* 2 (* 3 4) 2))
@@ -128,24 +128,24 @@
 		     24
 		     (2 . 4)
 		     )]
-          [answers 
-            (list 
-	     (eval-one-exp ' 
-	      (let ([a 3][b 5]) 
+          [answers
+            (list
+	     (eval-one-exp '
+	      (let ([a 3][b 5])
 		(+ a b)))
-(eval-one-exp ' 
- (let ([a 3]) 
-   (let ([b 2] [c (+ a 3)] [a (+ a a)]) 
+(eval-one-exp '
+ (let ([a 3])
+   (let ([b 2] [c (+ a 3)] [a (+ a a)])
      (+ a b c))))
-(eval-one-exp ' 
- (let ([a 3]) 
-   (let ([a (let ([a (+ a a)]) 
-	      (+ a a))]) 
+(eval-one-exp '
+ (let ([a 3])
+   (let ([a (let ([a (+ a a)])
+	      (+ a a))])
      (+ a a))))
-(eval-one-exp ' 
- (let ([a (list 3 4)]) 
-   (set-car! a 2) 
-   (set-cdr! a (cadr a)) 
+(eval-one-exp '
+ (let ([a (list 3 4)])
+   (set-car! a 2)
+   (set-cdr! a (cadr a))
    a))
 )])
       (display-results correct answers equal?)))
@@ -158,42 +158,42 @@
 		     720
 		     (#t #t #f)
 		     )]
-          [answers 
-	   (list 
-	    (eval-one-exp '((lambda (x) (+ 1 x)) 
+          [answers
+	   (list
+	    (eval-one-exp '((lambda (x) (+ 1 x))
 			    5))
-	    (eval-one-exp '((lambda (x) (+ 1 x) 
+	    (eval-one-exp '((lambda (x) (+ 1 x)
 				    (+ 2 (* 2 x))) 5))
-	    (eval-one-exp ' 
-	     ((lambda (a b) 
-		(let ([a (+ a b)] [b (- a b)]) 
-		  (let ([f (lambda (a) (+ a b))]) 
-		    (f (+ 3 a b))))) 
+	    (eval-one-exp '
+	     ((lambda (a b)
+		(let ([a (+ a b)] [b (- a b)])
+		  (let ([f (lambda (a) (+ a b))])
+		    (f (+ 3 a b)))))
 	      56 17))
-	    (eval-one-exp ' 
-	     (((lambda (f) 
-		 ((lambda (x) 
-		    (f (lambda (y) 
-			((x x) y)))) 
-		  (lambda (x) 
-		    (f (lambda (y) 
-			 ((x x) y)))))) 
-	       (lambda (g) 
-		 (lambda (n) 
-		   (if (zero? n) 1 (* n (g (- n 1))))))) 
+	    (eval-one-exp '
+	     (((lambda (f)
+		 ((lambda (x)
+		    (f (lambda (y)
+			((x x) y))))
+		  (lambda (x)
+		    (f (lambda (y)
+			 ((x x) y))))))
+	       (lambda (g)
+		 (lambda (n)
+		   (if (zero? n) 1 (* n (g (- n 1)))))))
 	     6))
-	   (eval-one-exp ' 
-	    (let ([Y (lambda (f) 
-		       ((lambda (x) 
-			  (f (lambda (y) 
-			       ((x x) y)))) 
-			(lambda (x) 
-			  (f (lambda (y) 
+	   (eval-one-exp '
+	    (let ([Y (lambda (f)
+		       ((lambda (x)
+			  (f (lambda (y)
+			       ((x x) y))))
+			(lambda (x)
+			  (f (lambda (y)
 			       ((x x) y))))))]
-		  [H (lambda (g) 
-		       (lambda (x) 
-			 (if (null? x) 
-			     '() 
+		  [H (lambda (g)
+		       (lambda (x)
+			 (if (null? x)
+			     '()
 			     (cons (procedure? (car x)) (g (cdr x))))))])
 		((Y H) (list list (lambda (x) x) 'list))))
 	     )])
@@ -206,7 +206,7 @@
 (define display-results
   (lambda (correct results test-procedure?)
      (display ": ")
-     (pretty-print 
+     (pretty-print
       (if (andmap test-procedure? correct results)
           'All-correct
           `(correct: ,correct yours: ,results)))))
@@ -269,15 +269,15 @@
 			  (andmap (lambda (y) (member y (remove (car x) syms)))
 				  (cadr x)))
 			obj))))))
-    
+
 (define graph-equal?
   (lambda (a b)
     (and
-     (graph? a) 
+     (graph? a)
      (graph? b)
      (let ([a-nodes (map car a)]
 	   [b-nodes (map car b)])
-       (and 
+       (and
 	(set-equals? a-nodes b-nodes)
 	    ; Now  See if the edges from each node are equivalent in the two graphs.
 	(let loop ([a-nodes a-nodes])
@@ -301,9 +301,9 @@
 
 
 (define g test-graph-equal)
-	   
-	  
-     
+
+
+
 
 
 
@@ -311,19 +311,18 @@
 ;#by loading this file (and your solution) and typing (r)
 
 (define (run-all)
-  (display 'literals) 
+  (display 'literals)
   (test-literals)
-  (display 'quote) 
+  (display 'quote)
   (test-quote)
-  (display 'if) 
+  (display 'if)
   (test-if)
-  (display 'primitive-procedures) 
-  (test-primitive-procedures)    
-  (display 'let) 
+  (display 'primitive-procedures)
+  (test-primitive-procedures)
+  (display 'let)
   (test-let)
-  (display 'lambda) 
+  (display 'lambda)
   (test-lambda)
 )
 
 (define r run-all)
-

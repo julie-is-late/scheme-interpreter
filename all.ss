@@ -326,7 +326,7 @@
 
 (define eval-rands
   (lambda (rands env)
-    (map eval-exp rands env)))
+    (map (lambda (x) (eval-exp x env)) rands)))
 
 ;  Apply a procedure to its arguments.
 ;  At this point, we only have primitive procedures.
@@ -356,7 +356,7 @@
 (define apply-prim-proc
   (lambda (prim-proc args)
     (case prim-proc
-      [(+) (begin (display args) (+ (1st args) (2nd args)))]
+      [(+) (+ (1st args) (2nd args))]
       [(-) (- (1st args) (2nd args))]
       [(*) (* (1st args) (2nd args))]
       [(add1) (+ (1st args) 1)]

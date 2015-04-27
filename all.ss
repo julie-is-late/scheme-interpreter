@@ -71,7 +71,12 @@
 
 (define-datatype proc-val proc-val?
   [prim-proc
-   (name symbol?)])
+    (name symbol?)]
+  [closure
+    (symbols (list-of symbol?))
+    (body (list-of expression?))
+    (env environment?)]
+)
 
 
 
@@ -343,27 +348,37 @@
                             (amama (cdr expl))
                           ))))])
               (amama body)))]
+      [lambda-exp (id body) (closure id body env)]
       [app-exp (rator rands)
         (let ([proc-value (eval-exp rator env)]
               [args (eval-rands rands env)])
           (apply-proc proc-value args))]
       [else (eopl:error 'eval-exp "Bad abstract syntax: ~a" exp)])))
 
-; evaluate the list of operands, putting results into a list
 
+(define eval-inorder
+  (lambda (body env)
+    (if (null? body)
+      '()
+      (if (null? (cdr body))
+        (eval-exp (car body) env)
+        (begin
+          (eval-exp (car body) env)
+          (eval-inorder (cdr body) env))))))
+
+; evaluate the list of operands, putting results into a list
 (define eval-rands
   (lambda (rands env)
     (map (lambda (x) (eval-exp x env)) rands)))
 
 ;  Apply a procedure to its arguments.
-;  At this point, we only have primitive procedures.
-;  User-defined procedures will be added later.
 
 (define apply-proc
   (lambda (proc-value args)
     (cases proc-val proc-value
       [prim-proc (op) (apply-prim-proc op args)]
 			; You will add other cases
+      [closure (syms body env) (eval-inorder body (extend-env syms args env))]
       [else (eopl:error 'apply-proc
                    "Attempt to apply bad procedure: ~s"
                     proc-value)])))
@@ -478,7 +493,7 @@
           (error 'apply-prim-proc "Incorrect number of arguments to" prim-proc))]
       [(procedure?)
         (if (null? (cdr args))
-          (procedure? (1st args))
+          (proc-val? (1st args))
           (error 'apply-prim-proc "Incorrect number of arguments to" prim-proc))]
       [(vector->list)
         (if (null? (cdr args))

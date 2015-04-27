@@ -330,6 +330,19 @@
         (if (eval-exp pred env)
             (eval-exp true env)
             (eval-exp false env))]
+      [let-exp (variables body)
+        (let ((new-env (extend-env (map (lambda (x) (unparse-exp (car x))) variables) (map (lambda (x) (eval-exp (cadr x) env)) variables) env)))
+          (letrec ([amama
+                    (lambda (expl)
+                      (if (null? expl)
+                        '()
+                        (if (null? (cdr expl))
+                          (eval-exp (car expl) new-env)
+                          (begin
+                            (eval-exp (car expl) new-env)
+                            (amama (cdr expl))
+                          ))))])
+              (amama body)))]
       [app-exp (rator rands)
         (let ([proc-value (eval-exp rator env)]
               [args (eval-rands rands env)])

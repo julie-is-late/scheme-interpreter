@@ -47,6 +47,9 @@
   [letrec-exp
     (variables (list-of list?))
     (body (list-of expression?))]
+  [when-exp
+    (test expression?)
+    (body (list-of expression?))]
   [empty-app-exp
     (rator expression?)]
   [app-exp
@@ -180,6 +183,9 @@
           [(eqv? (car datum) 'quote)
             (quote-exp (lit-exp (cadr datum)))]
 
+          [(eqv? (car datum) 'when)
+            (when-exp (parse-exp (cadr datum)) (map parse-exp (cddr datum)))]
+
           [else (if (not (list? datum))
                   (eopl:error 'parse-exp "Improper list: ~s" datum)
                   (if (null? (cdr datum))
@@ -230,6 +236,8 @@
                                  variables)) (map unparse-exp body))]
       [quote-exp (body)
         (unparse-exp body)]
+      [when-exp (test body)
+        (append (list 'when (unparse test)) (map unparse-exp body))]
       [empty-app-exp (rator)
         (list (unparse-exp rator))]
       [app-exp (rator rand)
@@ -331,6 +339,9 @@
 		          "variable not found in environment: ~s"
 			   id)))]
       [quote-exp (body) (eval-exp body env)]
+      [when-exp (test body)
+        (if (eval-exp test env)
+          (eval-inorder body env))]
       [if-else-exp (pred true false)
         (if (eval-exp pred env)
             (eval-exp true env)

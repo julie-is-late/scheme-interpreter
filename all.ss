@@ -28,6 +28,9 @@
     (variable symbol?) ;; make pair
     (id list?)
     (body (list-of expression?))]
+  [lambda-exp-improp
+    (id pair?)
+    (body (list-of expression?))]
   [if-else-exp
     (pred expression?)
     (yes expression?)
@@ -55,6 +58,21 @@
   [app-exp
     (rator expression?)
     (rand (list-of expression?))]
+  [cond-exp
+    (cases (list-of list?))]
+  [begin-again
+    (expressyourself (list-of expression?))]
+  [while-exp
+    (test expression?)
+    (body (list-of expression?))]
+  [case-exp
+    (var expression?)
+    (conds (list-of (list-of expression?)))
+    (body (list-of (list-of expression?)))]
+  [or-exp
+    (body (list-of expression?))]
+  [and-exp
+    (body (list-of expression?))]
 )
 
 ;; environment type definitions
@@ -76,7 +94,9 @@
   [prim-proc
     (name symbol?)]
   [closure
-    (symbols (list-of symbol?))
+    (symbols
+      (lambda (x)
+        (or ((list-of symbol?) x) (symbol? x) (pair? x))))
     (body (list-of expression?))
     (env environment?)]
 )
@@ -103,7 +123,7 @@
   (lambda (datum)
     (cond
       [(symbol? datum) (var-exp datum)]
-      [(or (number? datum) (string? datum) (boolean? datum) (vector? datum)) (lit-exp datum)]
+      [(or (number? datum) (string? datum) (boolean? datum) (vector? datum) (symbol? datum)) (lit-exp datum)]
       [(pair? datum)
         (cond
           [(eqv? (car datum) 'lambda)
@@ -115,8 +135,10 @@
                   (lambda-exp (cadr datum)
                               (map parse-exp (cddr datum)))
                 )
-                (lambda-exp-variable 'variable (list (cadr datum))
-                            (map parse-exp (cddr datum)))
+                (if (pair? (cadr datum))
+                  (lambda-exp-improp (cadr datum) (map parse-exp (cddr datum)))
+                  (lambda-exp-variable 'variable (list (cadr datum))
+                              (map parse-exp (cddr datum))))
               ))]
 
           [(eqv? (car datum) 'if)
@@ -186,6 +208,25 @@
           [(eqv? (car datum) 'when)
             (when-exp (parse-exp (cadr datum)) (map parse-exp (cddr datum)))]
 
+          [(eqv? (car datum) 'cond)
+            (cond-exp (map (lambda (x) (list (parse-exp (car x)) (parse-exp (cadr x)))) (cdr datum)))]
+
+          [(eqv? (car datum) 'begin)
+            (begin-again (map (lambda (x) (parse-exp x)) (cdr datum)))]
+
+          [(eqv? (car datum) 'while)
+            (while-exp (parse-exp (cadr datum)) (map (lambda (x) (parse-exp x)) (cddr datum)))]
+
+          [(eqv? (car datum) 'case)
+            (let ([res (caseish (parse-exp (cadr datum)) (cddr datum))])
+              (case-exp (parse-exp (cadr datum)) (car res) (cadr res)))]
+
+          [(eqv? (car datum) 'or)
+            (or-exp (map parse-exp (cdr datum)))]
+
+          [(eqv? (car datum) 'and)
+            (and-exp (map parse-exp (cdr datum)))]
+
           [else (if (not (list? datum))
                   (eopl:error 'parse-exp "Improper list: ~s" datum)
                   (if (null? (cdr datum))
@@ -198,6 +239,22 @@
     )
   )
 )
+
+(define caseish
+  (lambda (base ls)
+    (let
+      ([conds (map car ls)]
+       [body  (map cdr ls)])
+      (list
+        (map (lambda (x)
+          (cond
+            [(list? x) (map parse-exp x)]
+            [(equal? x 'else) (list base)]
+            [else (list (parse-exp x))])) conds)
+        (map (lambda (x)
+          (cond
+            [(list? x) (map parse-exp x)]
+            [else (list (parse-exp x))])) body)))))
 
 (define unparse-exp
   (lambda (exp)
@@ -284,12 +341,23 @@
   (lambda (env sym succeed fail) ; succeed and fail are procedures applied if the var is or isn't found, respectively.
     (cases environment env
       (empty-env-record ()
-        (fail))
+        (apply-global init-env sym succeed fail))
       (extended-env-record (syms vals env)
 	      (let ((pos (list-find-position sym syms)))
       	  (if (number? pos)
 	         (succeed (list-ref vals pos))
 	         (apply-env env sym succeed fail)))))))
+
+(define apply-global
+  (lambda (env sym succeed fail)
+    (cases environment env
+      (empty-env-record () ; otherwise will never actually run fail
+        (fail))
+      (extended-env-record (syms vals env)
+	      (let ((pos (list-find-position sym syms)))
+      	  (if (number? pos)
+	         (succeed (list-ref vals pos))
+	         (apply-global env sym succeed fail)))))))
 
 
 
@@ -302,13 +370,65 @@
 
 
 ; To be added later
+(define syntax-expand
+  (lambda (exp)
+    (cases expression exp
+      [var-exp (id) exp]
+      [lit-exp (id) exp]
+      [quote-exp (body) exp]
+      [lambda-exp (id body) (lambda-exp id (map syntax-expand body))]
+      [lambda-exp-variable (var id body) (lambda-exp-variable var id (map syntax-expand body))]
+      [lambda-exp-improp (id body) (lambda-exp-improp id (map syntax-expand body))]
+      [if-else-exp (pred yes no) (if-else-exp (syntax-expand pred) (syntax-expand yes) (syntax-expand no))]
+      [if-exp (pred yes) (if-exp (syntax-expand pred) (syntax-expand yes))]
+      [set!-exp (var body) (set!-exp (syntax-expand var) (syntax-expand body))]
+      [let-exp (variables body)
+        (app-exp
+          (lambda-exp
+            (map cadar variables)
+            (map syntax-expand body))
+          (map cadr variables))]
+      [let*-exp (variables body)
+        exp] ;TODO DO THIS
+      [letrec-exp (variables body) exp]
+      [when-exp (test body) (when-exp (syntax-expand test) (map syntax-expand body))]
+      [empty-app-exp (rator) (empty-app-exp (syntax-expand rator))]
+      [app-exp (rator rand) (app-exp (syntax-expand rator) (map syntax-expand rand))]
+      [cond-exp (cases)
+        (letrec
+          ([casy
+            (lambda (li)
+              (if (eq? 'else (cadaar li)) ;change else to (lit-expt 'else)
+                (syntax-expand (cadar li))
+                (if-else-exp (syntax-expand (caar li)) (syntax-expand (cadar li)) (casy (cdr li)))))])
+             (casy cases))]
+      [begin-again (expressyourself) (empty-app-exp (lambda-exp (list) (map syntax-expand expressyourself)))]
+      [while-exp (test body) (while-exp (syntax-expand test) body)]
+      [case-exp (base cases body)
+        (let [(var base)]
+          (letrec
+            [(halpy
+              (lambda (conds bodies)
+                (if (null? (cdr conds))
+                  (if-exp
+                    (app-exp (var-exp 'member) (cons var (map syntax-expand (car conds))))
+                    (syntax-expand (begin-again (car bodies))))
+                  (if-else-exp
+                    (app-exp (var-exp 'member) (cons var (map syntax-expand (car conds))))
+                    (syntax-expand (begin-again (car bodies)))
+                    (halpy (cdr conds) (cdr bodies))))))]
+                    (halpy cases body)))]
+      [or-exp (body) (if (null? body)
+                        (lit-exp #f)
+                        (if-else-exp (car body) (car body) (syntax-expand (or-exp (cdr body)))))]
+      [and-exp (body) (if (null? body)
+                        (lit-exp #t)
+                        (if-else-exp (car body) (syntax-expand (and-exp (cdr body))) (lit-exp #f)))]
 
-
-
-
-
-
-
+      [else (eopl:error 'syntax-expand "bad expression: ~s" exp)]
+    )
+  )
+)
 
 
 ;-------------------+
@@ -324,7 +444,7 @@
 (define top-level-eval
   (lambda (form)
     ; later we may add things that are not expressions.
-    (eval-exp form init-env)))
+    (eval-exp form (empty-env))))
 
 ; eval-exp is the main component of the interpreter
 
@@ -346,6 +466,10 @@
         (if (eval-exp pred env)
             (eval-exp true env)
             (eval-exp false env))]
+      [if-exp (pred true)
+        (if (eval-exp pred env)
+            (eval-exp true env)
+            (void))]
       [let-exp (variables body)
         (let ((new-env (extend-env (map (lambda (x) (unparse-exp (car x))) variables) (map (lambda (x) (eval-exp (cadr x) env)) variables) env)))
           (letrec ([amama
@@ -360,12 +484,33 @@
                           ))))])
               (amama body)))]
       [lambda-exp (id body) (closure id body env)]
+      [lambda-exp-variable (var id body) (closure (car id) body env)]
+      [lambda-exp-improp (id body) (closure id body env)];TODO
       [app-exp (rator rands)
         (let ([proc-value (eval-exp rator env)]
               [args (eval-rands rands env)])
           (apply-proc proc-value args))]
+      [while-exp (test body)
+        (if (eval-exp test env)
+          (begin
+            (eval-exp (syntax-expand (begin-again body)) env)
+            (eval-exp (while-exp test body) env)))]
+      [empty-app-exp (rator) (apply-proc (eval-exp rator env) '())]
       [else (eopl:error 'eval-exp "Bad abstract syntax: ~a" exp)])))
 
+(define proper
+  (lambda (x)
+    (cond
+      [(null? x) '()]
+      [(not (pair? x)) (list x)]
+      [else (cons (car x) (proper (cdr x)))])))
+
+(define improp-setup
+  (lambda (syms vals)
+    (cond
+      [(null? vals) (eopl:error 'improp-setup "not enough vals")]
+      [(pair? (cdr syms)) (cons (car vals) (improp-setup (cdr syms) (cdr vals)))]
+      [else (cons (car vals) (list (cdr vals)))])))
 
 (define eval-inorder
   (lambda (body env)
@@ -388,13 +533,19 @@
   (lambda (proc-value args)
     (cases proc-val proc-value
       [prim-proc (op) (apply-prim-proc op args)]
-			; You will add other cases
-      [closure (syms body env) (eval-inorder body (extend-env syms args env))]
+      [closure (syms body env)
+        (if (pair? syms)
+          (if (list? syms)
+            (eval-inorder body (extend-env syms args env))
+            (eval-inorder body (extend-env (proper syms) (improp-setup syms args) env)))
+          (if (list? syms)
+            (eval-inorder body env)
+            (eval-inorder body (extend-env (list syms) (list args) env))))]
       [else (eopl:error 'apply-proc
                    "Attempt to apply bad procedure: ~s"
                     proc-value)])))
 
-(define *prim-proc-names* '(+ - * / add1 sub1 = > < >= <= cons car cdr caar cadr cdar cddr caaar caadr cadar caddr cdaar cdadr cddar cdddr list zero? not null? assq eq? equal? atom? length list->vector list? pair? procedure? vector->list vector make-vector vector-ref vector? number? symbol? set-car! set-cdr! vector-set! display newline))
+(define *prim-proc-names* '(+ - * / add1 sub1 = > < >= <= cons car cdr caar cadr cdar cddr caaar caadr cadar caddr cdaar cdadr cddar cdddr list zero? not null? assq eq? equal? atom? length list->vector list? pair? procedure? vector->list vector make-vector vector-ref vector? number? symbol? set-car! set-cdr! vector-set! display newline map apply quotient member))
 
 (define init-env         ; for now, our initial global environment only contains
   (extend-env            ; procedure names.  Recall that an environment associates
@@ -510,7 +661,7 @@
         (if (null? (cdr args))
           (vector->list (1st args))
           (error 'apply-prim-proc "Incorrect number of arguments to" prim-proc))]
-      [(vector) (vector args)]
+      [(vector) (apply vector args)]
       [(make-vector) (make-vector (1st args) (2nd args))]
       [(vector-ref) (vector-ref (1st args) (2nd args))]
       [(vector?)
@@ -530,6 +681,11 @@
       [(vector-set!) (vector-set! (1st args) (2nd args) (3rd args))]
       [(display) (apply display args)]
       [(newline) (newline)]
+      [(apply) (apply (lambda (x) (apply-proc (1st args) x)) (cdr args))]
+      [(map)   (map (lambda (x) (apply-proc (1st args) (list x))) (cadr args))]
+      [(quotient) (apply quotient args)]
+      [(member) (member (car args) (cdr args))]
+
       [else (error 'apply-prim-proc
             "Bad primitive procedure name: ~s"
             prim-proc)])))
@@ -538,10 +694,10 @@
   (lambda ()
     (display "--> ")
     ;; notice that we don't save changes to the environment...
-    (let ([answer (top-level-eval (parse-exp (read)))])
+    (let ([answer (top-level-eval (syntax-expand (parse-exp (read))))])
       ;; TODO: are there answers that should display differently?
       (eopl:pretty-print answer) (newline)
       (rep))))  ; tail-recursive, so stack doesn't grow.
 
 (define eval-one-exp
-  (lambda (x) (top-level-eval (parse-exp x))))
+  (lambda (x) (top-level-eval (syntax-expand (parse-exp x)))))

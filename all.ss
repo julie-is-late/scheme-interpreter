@@ -48,8 +48,10 @@
     (variables (list-of list?))
     (body (list-of expression?))]
   [letrec-exp
-    (variables (list-of list?))
-    (body (list-of expression?))]
+    (procs (list-of symbol?))
+    (ids (list-of (list-of symbol?)))
+    (bodies (list-of expression?))
+    (letrec-body expression?)]
   [when-exp
     (test expression?)
     (body (list-of expression?))]
@@ -60,7 +62,7 @@
     (rand (list-of expression?))]
   [cond-exp
     (cases (list-of list?))]
-  [begin-again
+  [begin-exp
     (expressyourself (list-of expression?))]
   [while-exp
     (test expression?)
@@ -189,18 +191,11 @@
                   (map parse-exp (cddr datum)))))]
 
           [(eqv? (car datum) 'letrec)
-            (if (or (null? (cdr datum)) (null? (cddr datum)))
-              (eopl:error 'parse-exp "incorrect # of arguments: ~s" datum)
-              (if (or (not (list? (cadr datum))))
-                (eopl:error 'parse-exp "incorrect argument(s): ~s" datum)
-                (letrec-exp
-                  (map (lambda (x) (if (or (not (list? x)) (null? (cdr x)) (not (null? (cddr x))) (not (symbol? (car x))))
-                          (eopl:error 'parse-exp "incorrect argument(s): ~s in ~s" x datum)
-                          (list
-                                  (parse-exp (car x))
-                                  (parse-exp (cadr x)))))
-                    (cadr datum))
-                  (map parse-exp (cddr datum)))))]
+            (letrec-exp
+              (map car (cadr datum))
+              (map cadadr (cadr datum))
+              (map (lambda (x) (parse-exp (cddadr x))) (cadr datum))
+              (parse-exp (cddr datum)))]
 
           [(eqv? (car datum) 'quote)
             (quote-exp (lit-exp (cadr datum)))]
@@ -212,7 +207,7 @@
             (cond-exp (map (lambda (x) (list (parse-exp (car x)) (parse-exp (cadr x)))) (cdr datum)))]
 
           [(eqv? (car datum) 'begin)
-            (begin-again (map (lambda (x) (parse-exp x)) (cdr datum)))]
+            (begin-exp (map (lambda (x) (parse-exp x)) (cdr datum)))]
 
           [(eqv? (car datum) 'while)
             (while-exp (parse-exp (cadr datum)) (map (lambda (x) (parse-exp x)) (cddr datum)))]
@@ -402,7 +397,7 @@
                 (syntax-expand (cadar li))
                 (if-else-exp (syntax-expand (caar li)) (syntax-expand (cadar li)) (casy (cdr li)))))])
              (casy cases))]
-      [begin-again (expressyourself) (empty-app-exp (lambda-exp (list) (map syntax-expand expressyourself)))]
+      [begin-exp (expressyourself) (empty-app-exp (lambda-exp (list) (map syntax-expand expressyourself)))]
       [while-exp (test body) (while-exp (syntax-expand test) body)]
       [case-exp (base cases body)
         (let [(var base)]
@@ -412,10 +407,10 @@
                 (if (null? (cdr conds))
                   (if-exp
                     (app-exp (var-exp 'member) (cons var (map syntax-expand (car conds))))
-                    (syntax-expand (begin-again (car bodies))))
+                    (syntax-expand (begin-exp (car bodies))))
                   (if-else-exp
                     (app-exp (var-exp 'member) (cons var (map syntax-expand (car conds))))
-                    (syntax-expand (begin-again (car bodies)))
+                    (syntax-expand (begin-exp (car bodies)))
                     (halpy (cdr conds) (cdr bodies))))))]
                     (halpy cases body)))]
       [or-exp (body) (if (null? body)
@@ -493,7 +488,7 @@
       [while-exp (test body)
         (if (eval-exp test env)
           (begin
-            (eval-exp (syntax-expand (begin-again body)) env)
+            (eval-exp (syntax-expand (begin-exp body)) env)
             (eval-exp (while-exp test body) env)))]
       [empty-app-exp (rator) (apply-proc (eval-exp rator env) '())]
       [else (eopl:error 'eval-exp "Bad abstract syntax: ~a" exp)])))

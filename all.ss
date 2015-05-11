@@ -49,9 +49,9 @@
     (body (list-of expression?))]
   [letrec-exp
     (procs (list-of symbol?))
-    (ids (list-of (list-of symbol?)))
+    (ids (list-of pair?))
     (bodies (list-of expression?))
-    (letrec-body expression?)]
+    (letrec-body (list-of expression?))]
   [named-let-exp
     (name symbol?)
     (in (list-of symbol?))
@@ -180,7 +180,7 @@
                   (cadr datum)
                   (map car (caddr datum))
                   (map (lambda (x) (parse-exp (cadr x))) (caddr datum))
-                  (map parse-exp (cddr datum)))
+                  (map parse-exp (cdddr datum)))
                 (let-exp
                   (map (lambda (x) (if (or (not (list? x)) (null? (cdr x)) (not (null? (cddr x))) (not (symbol? (car x))))
                           (eopl:error 'parse-exp "incorrect argument(s): ~s in ~s" x datum)
@@ -208,8 +208,8 @@
             (letrec-exp
               (map car (cadr datum))
               (map cadadr (cadr datum))
-              (map (lambda (x) (parse-exp (cddadr x))) (cadr datum))
-              (parse-exp (cddr datum)))]
+              (map (lambda (x) (cadr (parse-exp (cddadr x)))) (cadr datum))
+              (map parse-exp (cddr datum)))]
 
           [(eqv? (car datum) 'quote)
             (quote-exp (lit-exp (cadr datum)))]
@@ -402,14 +402,14 @@
           procs
           ids
           (map syntax-expand bodies)
-          (syntax-expand letrec-body))]
+          (map syntax-expand letrec-body))]
       [named-let-exp (name in vals body)
         (syntax-expand
           (letrec-exp
             (list name)
             (list in)
             body
-            (app-exp (var-exp name) vals)))]
+            (list (app-exp (var-exp name) vals))))]
       [when-exp (test body) (when-exp (syntax-expand test) (map syntax-expand body))]
       [empty-app-exp (rator) (empty-app-exp (syntax-expand rator))]
       [app-exp (rator rand) (app-exp (syntax-expand rator) (map syntax-expand rand))]
@@ -506,7 +506,7 @@
       [lambda-exp-variable (var id body) (closure (car id) body env)]
       [lambda-exp-improp (id body) (closure id body env)]
       [letrec-exp (procs ids bodies letrec-body)
-        (eval-exp letrec-body
+        (eval-inorder letrec-body
           (recursively-extended-env-record procs ids bodies env))]
       [app-exp (rator rands)
         (let ([proc-value (eval-exp rator env)]

@@ -7,11 +7,11 @@
 		     120
 		     (#t #f #f #t)
 		     )]
-          [answers 
-            (list 
+          [answers
+            (list
 	     (eval-one-exp '
 	      (letrec ([fact (lambda (x)
-			       (if (zero? x) 
+			       (if (zero? x)
 				   1
 				   (* x (fact (- x 1)))))])
 		(map fact '(0 1 2 3 4 5))))
@@ -20,17 +20,17 @@
 		(if (= n 0)
 		    acc
 		    (f (sub1 n) (* acc n)))))
-	     
-	     (eval-one-exp '
-	      (let ([n 5])
-		(let f ([n n] [acc 1])
-		  (if (= n 0)
-		      acc
-		      (f (sub1 n) (* acc n))))))
-	     
+
+  	     (eval-one-exp '
+  	      (let ([n 5])
+  		(let f ([n n] [acc 1])
+  		  (if (= n 0)
+  		      acc
+  		      (f (sub1 n) (* acc n))))))
+
 	     (eval-one-exp '
 	      (letrec ([even? (lambda (n)
-				(if (zero? n) 
+				(if (zero? n)
 				    #t
 				    (odd? (- n 1))))]
 		       [odd? (lambda (m)
@@ -45,8 +45,8 @@
 		     (k e b d a c)
 		     ((3 a) (2 b)(3 b) (2 a) (1 a) (1 b))
 		     )]
-          [answers 
-            (list 
+          [answers
+            (list
 	     (eval-one-exp '
 	      (letrec ([union
 			(lambda (s1 s2)
@@ -79,28 +79,28 @@
     (let ([correct '(
 		     (8 6 5 4 3 2 1)
 		     )]
-      [answers 
-       (list 
-	(eval-one-exp ' 
-	 (letrec ([sort (lambda (pred? l) 
-			  (if (null? l) l 
-			      (dosort pred? l (length l))))] 
-		  [merge (lambda (pred? l1 l2) 
-			   (cond [(null? l1) l2] 
-				 [(null? l2) l1] 
-				 [(pred? (car l2) (car l1)) 
-				  (cons (car l2) 
-					(merge pred? l1 (cdr l2)))] 
-				 [else (cons (car l1) (merge pred? 
-							     (cdr l1) l2))]))] 
-		  [dosort (lambda (pred? ls n) 
-			    (if (= n 1) 
-				(list (car ls)) 
-				(let ([mid (quotient n 2)]) 
-				  (merge pred? (dosort pred? ls mid) 
-					 (dosort pred? 
-						 (list-tail ls mid) 
-						 (- n mid))))))]) 
+      [answers
+       (list
+	(eval-one-exp '
+	 (letrec ([sort (lambda (pred? l)
+			  (if (null? l) l
+			      (dosort pred? l (length l))))]
+		  [merge (lambda (pred? l1 l2)
+			   (cond [(null? l1) l2]
+				 [(null? l2) l1]
+				 [(pred? (car l2) (car l1))
+				  (cons (car l2)
+					(merge pred? l1 (cdr l2)))]
+				 [else (cons (car l1) (merge pred?
+							     (cdr l1) l2))]))]
+		  [dosort (lambda (pred? ls n)
+			    (if (= n 1)
+				(list (car ls))
+				(let ([mid (quotient n 2)])
+				  (merge pred? (dosort pred? ls mid)
+					 (dosort pred?
+						 (list-tail ls mid)
+						 (- n mid))))))])
 	   (sort > '(3 8 1 4 2 5 6))))
 	)])
       (display-results correct answers equal?)))
@@ -110,7 +110,7 @@
   (let ([correct '(
 		     (((a b (c () (d new (f g)) h)) i))
 		     )]
-	[answers 
+	[answers
 	 (list
 	 (eval-one-exp '
 	  (letrec (
@@ -118,8 +118,8 @@
 					  (apply k list-of-values))]
 		   [subst-left-cps
 		    (lambda (new old slist changed unchanged)
-		      (let loop ([slist slist] 
-				 [changed changed] 
+		      (let loop ([slist slist]
+				 [changed changed]
 				 [unchanged unchanged])
 			(cond
 			 [(null? slist) (apply-continuation unchanged)]
@@ -128,24 +128,24 @@
 			      (apply-continuation changed (cons new (cdr slist)))
 			      (loop (cdr slist)
 				    (lambda (changed-cdr)
-				      (apply-continuation changed 
+				      (apply-continuation changed
 							  (cons (car slist) changed-cdr)))
 				    unchanged))]
-			 [else 
+			 [else
 			  (loop (car slist)
 				(lambda (changed-car)
-				  (apply-continuation changed 
+				  (apply-continuation changed
 						      (cons changed-car (cdr slist))))
-				(lambda () 
+				(lambda ()
 				  (loop (cdr slist)
 					(lambda (changed-cdr)
-					  (apply-continuation changed 
+					  (apply-continuation changed
 							      (cons (car slist) changed-cdr)))
 					unchanged)))])))])
 	    (let ([s '((a b (c ()  (d e (f g)) h)) i)])
 	      (subst-left-cps 'new 'e s
 			      (lambda (changed-s)
-				(subst-left-cps 'new 'q s 
+				(subst-left-cps 'new 'q s
 						(lambda (wont-be-changed) 'whocares)
 						(lambda () (list changed-s))))
 			      (lambda () "It's an error to get here"))))))])
@@ -159,7 +159,7 @@
 (define display-results
   (lambda (correct results test-procedure?)
      (display ": ")
-     (pretty-print 
+     (pretty-print
       (if (andmap test-procedure? correct results)
           'All-correct
           `(correct: ,correct yours: ,results)))))
@@ -223,15 +223,15 @@
 			  (andmap (lambda (y) (member y (remove (car x) syms)))
 				  (cadr x)))
 			obj))))))
-    
+
 (define graph-equal?
   (lambda (a b)
     (and
-     (graph? a) 
+     (graph? a)
      (graph? b)
      (let ([a-nodes (map car a)]
 	   [b-nodes (map car b)])
-       (and 
+       (and
 	(set-equals? a-nodes b-nodes)
 	    ; Now  See if the edges from each node are equivalent in the two graphs.
 	(let loop ([a-nodes a-nodes])
@@ -255,9 +255,9 @@
 
 
 (define g test-graph-equal)
-	   
-	  
-     
+
+
+
 
 
 
@@ -265,15 +265,14 @@
 ;#by loading this file (and your solution) and typing (r)
 
 (define (run-all)
-  (display 'basics) 
+  (display 'basics)
   (test-basics)
-  (display 'answers-are-sets) 
+  (display 'answers-are-sets)
   (test-answers-are-sets)
-  (display 'additional) 
+  (display 'additional)
   (test-additional)
-  (display 'subst-leftmost) 
+  (display 'subst-leftmost)
   (test-subst-leftmost)
 )
 
 (define r run-all)
-

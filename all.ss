@@ -218,7 +218,7 @@
             (when-exp (parse-exp (cadr datum)) (map parse-exp (cddr datum)))]
 
           [(eqv? (car datum) 'cond)
-            (cond-exp (map (lambda (x) (parse-exp (car x)) (parse-exp (cadr x))) (cdr datum)))]
+            (cond-exp (map (lambda (x) (list (parse-exp (car x)) (parse-exp (cadr x)))) (cdr datum)))]
 
           [(eqv? (car datum) 'begin)
             (begin-exp (map (lambda (x) (parse-exp x)) (cdr datum)))]

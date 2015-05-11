@@ -106,6 +106,52 @@
       (display-results correct answers equal?)))
 
 
+(define (test-subst-leftmost)
+  (let ([correct '(
+		     (((a b (c () (d new (f g)) h)) i))
+		     )]
+	[answers 
+	 (list
+	 (eval-one-exp '
+	  (letrec (
+		   [apply-continuation  (lambda (k . list-of-values)
+					  (apply k list-of-values))]
+		   [subst-left-cps
+		    (lambda (new old slist changed unchanged)
+		      (let loop ([slist slist] 
+				 [changed changed] 
+				 [unchanged unchanged])
+			(cond
+			 [(null? slist) (apply-continuation unchanged)]
+			 [(symbol? (car slist))
+			  (if (eq? (car slist) old)
+			      (apply-continuation changed (cons new (cdr slist)))
+			      (loop (cdr slist)
+				    (lambda (changed-cdr)
+				      (apply-continuation changed 
+							  (cons (car slist) changed-cdr)))
+				    unchanged))]
+			 [else 
+			  (loop (car slist)
+				(lambda (changed-car)
+				  (apply-continuation changed 
+						      (cons changed-car (cdr slist))))
+				(lambda () 
+				  (loop (cdr slist)
+					(lambda (changed-cdr)
+					  (apply-continuation changed 
+							      (cons (car slist) changed-cdr)))
+					unchanged)))])))])
+	    (let ([s '((a b (c ()  (d e (f g)) h)) i)])
+	      (subst-left-cps 'new 'e s
+			      (lambda (changed-s)
+				(subst-left-cps 'new 'q s 
+						(lambda (wont-be-changed) 'whocares)
+						(lambda () (list changed-s))))
+			      (lambda () "It's an error to get here"))))))])
+    (display-results correct answers equal?)))
+
+
 
 
 ;-----------------------------------------------
@@ -225,6 +271,8 @@
   (test-answers-are-sets)
   (display 'additional) 
   (test-additional)
+  (display 'subst-leftmost) 
+  (test-subst-leftmost)
 )
 
 (define r run-all)

@@ -95,7 +95,7 @@
    (env environment?)]
   [recursively-extended-env-record
     (proc-names (list-of symbol?))
-    (idss (list-of (list-of symbol?)))
+    (idss pair?)
     (bodies (list-of expression?))
     (env environment?)])
 
@@ -567,7 +567,7 @@
                    "Attempt to apply bad procedure: ~s"
                     proc-value)])))
 
-(define *prim-proc-names* '(+ - * / add1 sub1 = > < >= <= cons car cdr caar cadr cdar cddr caaar caadr cadar caddr cdaar cdadr cddar cdddr list zero? not null? assq eq? equal? atom? length list->vector list? pair? procedure? vector->list vector make-vector vector-ref vector? number? symbol? set-car! set-cdr! vector-set! display newline map apply quotient member))
+(define *prim-proc-names* '(+ - * / add1 sub1 = > < >= <= cons car cdr caar cadr cdar cddr caaar caadr cadar caddr cdaar cdadr cddar cdddr list zero? not null? assq eq? equal? atom? length list->vector list? pair? procedure? vector->list vector make-vector vector-ref vector? number? symbol? set-car! set-cdr! vector-set! display newline map apply quotient member eqv? append list-tail))
 
 (define init-env         ; for now, our initial global environment only contains
   (extend-env            ; procedure names.  Recall that an environment associates
@@ -707,7 +707,9 @@
       [(map)   (map (lambda (x) (apply-proc (1st args) (list x))) (cadr args))]
       [(quotient) (apply quotient args)]
       [(member) (member (car args) (cdr args))]
-
+      [(eqv?) (eqv? (car args) (cadr args))]
+      [(append) (apply append args)]
+      [(list-tail) (list-tail (car args) (cadr args))]
       [else (error 'apply-prim-proc
             "Bad primitive procedure name: ~s"
             prim-proc)])))

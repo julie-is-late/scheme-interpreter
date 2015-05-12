@@ -353,7 +353,7 @@
               (lambda (env sym succeed fail)
                 (cases environment env
                   [empty-env-record ()
-                    fail]
+                    (fail)]
                   [extended-env-record (syms vals e)
             	      (let ([pos (list-find-position sym syms)])
                   	  (if (number? pos)
@@ -366,7 +366,7 @@
                                  (list (list-ref bodies pos))
                                   env)
                         (ap oldenv sym succeed fail)))]))])
-        (ap env sym succeed (ap init-env sym succeed fail)))))
+        (ap env sym succeed (lambda () (ap init-env sym succeed fail))))))
 
 
 ;-----------------------+
@@ -394,7 +394,7 @@
           (lambda-exp
             (map cadar variables)
             (map syntax-expand body))
-          (map cadr variables))]
+          (map cadr variables))] ;need to syntax-expand, see test-let from A13
       [let*-exp (variables body)
         exp] ;TODO  THIS
       [letrec-exp (procs ids bodies letrec-body)

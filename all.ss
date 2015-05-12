@@ -394,7 +394,7 @@
           (lambda-exp
             (map cadar variables)
             (map syntax-expand body))
-          (map cadr variables))] ;need to syntax-expand, see test-let from A13
+          (map (lambda (x) (syntax-expand (cadr x))) variables))]
       [let*-exp (variables body)
         exp] ;TODO  THIS
       [letrec-exp (procs ids bodies letrec-body)
